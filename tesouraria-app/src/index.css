@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+body {
+  margin: 0;
+  font-family: "Inter", "Segoe UI", Roboto, sans-serif;
+  background-color: #f3f4f6;
+  color: #111827;
+}
+
+@media print {
+  @page {
+    margin: 1.5cm;
+  }
+
+  body {
+    background-color: #ffffff;
+  }
+
+  table.folha-controlo {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    font-size: 11px;
+  }
+
+  table.folha-controlo th,
+  table.folha-controlo td {
+    border: 1px solid #555555;
+    padding: 4px 6px;
+    overflow: hidden;
+    word-break: break-word;
+    vertical-align: top;
+  }
+
+  table.folha-controlo thead th:nth-child(2),
+  table.folha-controlo tbody td:nth-child(2) {
+    white-space: nowrap;
+    overflow: visible;
+    word-break: keep-all;
+    padding-left: 3px;
+    padding-right: 3px;
+  }
+
+  table.folha-controlo thead th {
+    font-size: 9px;
+    white-space: normal;
+    letter-spacing: 0;
+  }
+
+  table.folha-controlo col.fc-num {
+    width: 5%;
+  }
+  table.folha-controlo col.fc-data {
+    width: 14%;
+  }
+  table.folha-controlo col.fc-ft {
+    width: 14%;
+  }
+  table.folha-controlo col.fc-desc {
+    width: 21%;
+  }
+  table.folha-controlo col.fc-rec {
+    width: 14%;
+  }
+  table.folha-controlo col.fc-pag {
+    width: 14%;
+  }
+  table.folha-controlo col.fc-saldo {
+    width: 16%;
+  }
+  table.folha-controlo col.fc-acoes {
+    display: none;
+  }
+}
