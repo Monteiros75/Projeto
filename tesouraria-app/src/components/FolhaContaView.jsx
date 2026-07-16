@@ -1,6 +1,7 @@
 import { AlertTriangle, CheckCircle2, Plus, Printer } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import AnexosMovimentoModal from './AnexosMovimentoModal'
 import CollapsibleSection from './CollapsibleSection'
 import EditarMovimentoModal from './EditarMovimentoModal'
 import RegistarMovimentoForm from './RegistarMovimentoForm'
@@ -47,7 +48,12 @@ export default function FolhaContaView({
   const { deleteMovimento, error: actionError } = useMovimentoActions()
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState(null)
-  const [movimentoIdsComModelo, setMovimentoIdsComModelo] = useState(() => new Set())
+  const [viewingAnexos, setViewingAnexos] = useState(null)
+  const [modelosPorMovimento, setModelosPorMovimento] = useState(() => new Map())
+  const movimentoIdsComModelo = useMemo(
+    () => new Set(modelosPorMovimento.keys()),
+    [modelosPorMovimento],
+  )
 
   const saldoAnterior = tipoConta === 'caixa' ? saldoAnteriorCaixa : saldoAnteriorBanco
 
@@ -68,23 +74,27 @@ export default function FolhaContaView({
 
   useEffect(() => {
     if (!user?.id) {
-      setMovimentoIdsComModelo(new Set())
+      setModelosPorMovimento(new Map())
       return
     }
     let cancelled = false
     async function loadModelosLigados() {
       const { data, error: modelosError } = await supabase
         .from('documentos_modelos')
-        .select('movimento_id')
+        .select('id, titulo, movimento_id')
         .eq('nucleo_id', user.id)
         .eq('month_ref', monthRef)
         .not('movimento_id', 'is', null)
       if (cancelled) return
       if (modelosError) {
-        setMovimentoIdsComModelo(new Set())
+        setModelosPorMovimento(new Map())
         return
       }
-      setMovimentoIdsComModelo(new Set((data || []).map((r) => r.movimento_id).filter(Boolean)))
+      const map = new Map()
+      for (const row of data || []) {
+        if (row.movimento_id) map.set(row.movimento_id, { id: row.id, titulo: row.titulo })
+      }
+      setModelosPorMovimento(map)
     }
     loadModelosLigados()
     return () => {
@@ -336,16 +346,21 @@ export default function FolhaContaView({
                   <tr key={movimento.id} className="group">
                     <td className="px-4 py-3 text-[14px] text-[#111827]">
                       <span className="flex items-center gap-1.5">
-                        <span
-                          className="print:hidden"
-                          title={docStatus.completo ? 'Documentos completos' : docStatus.falta}
+                        <button
+                          type="button"
+                          onClick={() => setViewingAnexos(movimento)}
+                          className="rounded p-0.5 hover:bg-[#F3F4F6] print:hidden"
+                          title={
+                            (docStatus.completo ? 'Documentos completos' : docStatus.falta) +
+                            ' — clica para ver'
+                          }
                         >
                           {docStatus.completo ? (
                             <CheckCircle2 className="h-4 w-4 shrink-0 text-[#10B981]" />
                           ) : (
                             <AlertTriangle className="h-4 w-4 shrink-0 text-[#F59E0B]" />
                           )}
-                        </span>
+                        </button>
                         {movimento.linha}
                       </span>
                     </td>
@@ -424,6 +439,15 @@ export default function FolhaContaView({
           movimento={editing}
           onClose={() => setEditing(null)}
           onSaved={reload}
+        />
+      ) : null}
+
+      {viewingAnexos ? (
+        <AnexosMovimentoModal
+          movimento={viewingAnexos}
+          modelo={modelosPorMovimento.get(viewingAnexos.id) || null}
+          monthRef={monthRef}
+          onClose={() => setViewingAnexos(null)}
         />
       ) : null}
     </div>
