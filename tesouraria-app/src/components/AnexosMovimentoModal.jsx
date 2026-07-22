@@ -5,22 +5,24 @@ import DocumentPreviewCard from './DocumentPreviewCard'
 import { formatDatePt } from '../lib/folhaMensal'
 import { createSignedUrlForPath } from '../lib/storageSignedUrl'
 
-function SemDocumento({ monthRef, onClose }) {
+function SemDocumento({ monthRef, onClose, readOnly }) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-xl border border-dashed border-[#E5E7EB] bg-[#FAFAFA] px-4 py-3">
       <p className="text-[13px] text-[#6B7280]">Sem documento anexado.</p>
-      <Link
-        to={`/documentos?mes=${monthRef}`}
-        onClick={onClose}
-        className="shrink-0 text-[13px] font-medium text-[#1F6FEB] hover:underline"
-      >
-        Adicionar
-      </Link>
+      {!readOnly ? (
+        <Link
+          to={`/documentos?mes=${monthRef}`}
+          onClick={onClose}
+          className="shrink-0 text-[13px] font-medium text-[#1F6FEB] hover:underline"
+        >
+          Adicionar
+        </Link>
+      ) : null}
     </div>
   )
 }
 
-export default function AnexosMovimentoModal({ movimento, modelo, monthRef, onClose }) {
+export default function AnexosMovimentoModal({ movimento, modelo, monthRef, onClose, readOnly = false }) {
   const [faturaUrl, setFaturaUrl] = useState('')
   const [comprovativoUrl, setComprovativoUrl] = useState('')
   const [loading, setLoading] = useState(true)
@@ -88,17 +90,19 @@ export default function AnexosMovimentoModal({ movimento, modelo, monthRef, onCl
                     </p>
                     <p className="text-[12px] text-[#6B7280]">Gerado na app — abre para ver ou imprimir.</p>
                   </div>
-                  <Link
-                    to={`/documentos/modelo/${modelo.id}`}
-                    onClick={onClose}
-                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-[#E5E7EB] bg-white px-3 py-1.5 text-[13px] font-medium text-[#111827] hover:bg-[#F9FAFB]"
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    Abrir
-                  </Link>
+                  {!readOnly ? (
+                    <Link
+                      to={`/documentos/modelo/${modelo.id}`}
+                      onClick={onClose}
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-[#E5E7EB] bg-white px-3 py-1.5 text-[13px] font-medium text-[#111827] hover:bg-[#F9FAFB]"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      Abrir
+                    </Link>
+                  ) : null}
                 </div>
               ) : (
-                <SemDocumento monthRef={monthRef} onClose={onClose} />
+                <SemDocumento monthRef={monthRef} onClose={onClose} readOnly={readOnly} />
               )}
             </div>
 
@@ -114,7 +118,7 @@ export default function AnexosMovimentoModal({ movimento, modelo, monthRef, onCl
                     fileName={comprovativoPath}
                   />
                 ) : (
-                  <SemDocumento monthRef={monthRef} onClose={onClose} />
+                  <SemDocumento monthRef={monthRef} onClose={onClose} readOnly={readOnly} />
                 )}
               </div>
             ) : null}
@@ -122,14 +126,18 @@ export default function AnexosMovimentoModal({ movimento, modelo, monthRef, onCl
         )}
 
         <div className="mt-5 flex items-center justify-between gap-3 border-t border-[#E5E7EB] pt-4">
-          <Link
-            to={`/documentos?mes=${monthRef}`}
-            onClick={onClose}
-            className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#1F6FEB] hover:underline"
-          >
-            <FileStack className="h-3.5 w-3.5" />
-            Gerir documentos deste mês
-          </Link>
+          {!readOnly ? (
+            <Link
+              to={`/documentos?mes=${monthRef}`}
+              onClick={onClose}
+              className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#1F6FEB] hover:underline"
+            >
+              <FileStack className="h-3.5 w-3.5" />
+              Gerir documentos deste mês
+            </Link>
+          ) : (
+            <span />
+          )}
           <button
             type="button"
             onClick={onClose}

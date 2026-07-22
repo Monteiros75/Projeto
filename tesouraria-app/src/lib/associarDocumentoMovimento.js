@@ -24,6 +24,21 @@ export function movimentoTemDocumentoBase(movimento, movimentoIdsComModelo = new
   return Boolean(movimento?.fatura_ou_oficio_path) || movimentoIdsComModelo.has(movimento?.id)
 }
 
+/** Estado dos documentos de um movimento para as folhas de controlo (icone + tooltip). */
+export function getMovimentoDocStatus(movimento, movimentoIdsComModelo = new Set()) {
+  const temBase = movimentoTemDocumentoBase(movimento, movimentoIdsComModelo)
+  const precisaComprovativo = movimento.tipo_conta === 'banco'
+  const temComprovativo = Boolean(movimento.comprovativo_banco_path)
+  const completo = temBase && (!precisaComprovativo || temComprovativo)
+
+  let falta = ''
+  if (!temBase && precisaComprovativo && !temComprovativo) falta = 'Falta fatura/ofício e comprovativo'
+  else if (!temBase) falta = 'Falta fatura ou ofício'
+  else if (precisaComprovativo && !temComprovativo) falta = 'Falta comprovativo bancário'
+
+  return { completo, falta }
+}
+
 export function isDocumentoExtraStoragePath(path) {
   return String(path || '').includes('/documentos-extras/')
 }

@@ -2,6 +2,7 @@ import { AlertCircle, ArrowLeft, CheckCircle2, Clock } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import EntregaImpressaoChecklist from '../components/EntregaImpressaoChecklist'
+import FolhaContaSomenteLeitura from '../components/FolhaContaSomenteLeitura'
 import MonthRefInput from '../components/MonthRefInput'
 import { useConselhoFecho } from '../hooks/useConselhoFecho'
 import { useEntregaImpressao } from '../hooks/useEntregaImpressao'
@@ -36,9 +37,14 @@ function ConselhoRevisaoPage() {
 
   const {
     nucleoProfile,
+    movimentos,
     loading,
     error,
     validation,
+    movimentoIdsComModelo,
+    modelosPorMovimento,
+    saldoAnteriorCaixa,
+    saldoAnteriorBanco,
     estadoValidacao,
     comentarioRevisao,
     submetidoEm,
@@ -209,6 +215,38 @@ function ConselhoRevisaoPage() {
           </div>
         )}
       </div>
+
+      {loading ? null : (
+        <div className="mb-6 rounded-lg border border-[#E5E7EB] bg-white p-6">
+          <h2 className="mb-1 text-[18px] font-medium text-[#111827]">Folha de movimentos</h2>
+          <p className="mb-5 text-[13px] text-[#6B7280]">
+            Compara cada linha (data, nº de documento, valor) com as faturas físicas recebidas.
+            Clica no ícone para ver os documentos anexados a um movimento.
+          </p>
+          <FolhaContaSomenteLeitura
+            tipoConta="caixa"
+            titulo="Folha de Caixa"
+            linhaPrefixo="C"
+            movimentos={movimentos}
+            saldoAnterior={saldoAnteriorCaixa}
+            movimentoIdsComModelo={movimentoIdsComModelo}
+            modelosPorMovimento={modelosPorMovimento}
+            monthRef={monthRef}
+          />
+          {temContaBancaria ? (
+            <FolhaContaSomenteLeitura
+              tipoConta="banco"
+              titulo="Folha Bancária"
+              linhaPrefixo="B"
+              movimentos={movimentos}
+              saldoAnterior={saldoAnteriorBanco}
+              movimentoIdsComModelo={movimentoIdsComModelo}
+              modelosPorMovimento={modelosPorMovimento}
+              monthRef={monthRef}
+            />
+          ) : null}
+        </div>
+      )}
 
       <div className="mb-6 rounded-lg border border-[#E5E7EB] bg-white p-6">
         <h2 className="mb-1 text-[18px] font-medium text-[#111827]">Documentos</h2>

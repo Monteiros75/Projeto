@@ -9,26 +9,12 @@ import { useAuth } from '../hooks/useAuth'
 import { useMovimentoActions } from '../hooks/useMovimentoActions'
 import { useMovimentosMes } from '../hooks/useMovimentosMes'
 import { useSaldoAbertura } from '../hooks/useSaldoAbertura'
-import { movimentoTemDocumentoBase } from '../lib/associarDocumentoMovimento'
+import { getMovimentoDocStatus } from '../lib/associarDocumentoMovimento'
 import { buildControlRows, formatDatePt, formatEur } from '../lib/folhaMensal'
 import { formatFechadoEm, isMesFechado } from '../lib/fechoPrazo'
 import { currentMonthRef, formatMonthLabel } from '../lib/monthRef'
 import MonthRefInput from './MonthRefInput'
 import { supabase } from '../supabase/supabaseClient'
-
-function getDocStatus(movimento, movimentoIdsComModelo) {
-  const temBase = movimentoTemDocumentoBase(movimento, movimentoIdsComModelo)
-  const precisaComprovativo = movimento.tipo_conta === 'banco'
-  const temComprovativo = Boolean(movimento.comprovativo_banco_path)
-  const completo = temBase && (!precisaComprovativo || temComprovativo)
-
-  let falta = ''
-  if (!temBase && precisaComprovativo && !temComprovativo) falta = 'Falta fatura/ofício e comprovativo'
-  else if (!temBase) falta = 'Falta fatura ou ofício'
-  else if (precisaComprovativo && !temComprovativo) falta = 'Falta comprovativo bancário'
-
-  return { completo, falta }
-}
 
 export default function FolhaContaView({
   tipoConta,
@@ -103,7 +89,7 @@ export default function FolhaContaView({
   }, [user?.id, monthRef, movimentos])
 
   const semDocumentoCount = useMemo(
-    () => rowsWithSaldo.filter((m) => !getDocStatus(m, movimentoIdsComModelo).completo).length,
+    () => rowsWithSaldo.filter((m) => !getMovimentoDocStatus(m, movimentoIdsComModelo).completo).length,
     [rowsWithSaldo, movimentoIdsComModelo],
   )
 
@@ -341,7 +327,7 @@ export default function FolhaContaView({
                 </>
               ) : (
                 rowsWithSaldo.map((movimento) => {
-                  const docStatus = getDocStatus(movimento, movimentoIdsComModelo)
+                  const docStatus = getMovimentoDocStatus(movimento, movimentoIdsComModelo)
                   return (
                   <tr key={movimento.id} className="group">
                     <td className="px-4 py-3 text-[14px] text-[#111827]">

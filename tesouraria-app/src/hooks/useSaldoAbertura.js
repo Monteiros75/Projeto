@@ -4,14 +4,17 @@ import { nucleoTemContaBancaria, saldoInicialBancoPerfil } from '../lib/contaBan
 import { supabase } from '../supabase/supabaseClient'
 import { useAuth } from './useAuth'
 
-export function useSaldoAbertura(monthRef) {
-  const { user, nucleoProfile } = useAuth()
+export function useSaldoAbertura(monthRef, options = {}) {
+  const { user, nucleoProfile: sessionNucleoProfile } = useAuth()
+  const { nucleoId, nucleoProfile: nucleoProfileOverride } = options
+  const targetNucleoId = nucleoId || user?.id
+  const nucleoProfile = nucleoProfileOverride || sessionNucleoProfile
   const [deltaCaixa, setDeltaCaixa] = useState(0)
   const [deltaBanco, setDeltaBanco] = useState(0)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!user?.id || !monthRef) {
+    if (!targetNucleoId || !monthRef) {
       setDeltaCaixa(0)
       setDeltaBanco(0)
       setLoading(false)
@@ -27,7 +30,7 @@ export function useSaldoAbertura(monthRef) {
       const { data, error } = await supabase
         .from('movimentos')
         .select('natureza, valor, tipo_conta, data')
-        .eq('nucleo_id', user.id)
+        .eq('nucleo_id', targetNucleoId)
         .lt('month_ref', monthRef)
 
       if (cancelled) return
@@ -51,7 +54,7 @@ export function useSaldoAbertura(monthRef) {
     return () => {
       cancelled = true
     }
-  }, [user?.id, monthRef, nucleoProfile?.dataReferenciaSaldos, nucleoProfile?.temContaBancaria])
+  }, [targetNucleoId, monthRef, nucleoProfile?.dataReferenciaSaldos, nucleoProfile?.temContaBancaria])
 
   const saldoAnteriorCaixa = Number(nucleoProfile?.saldoAtualCaixa || 0) + deltaCaixa
   const saldoAnteriorBanco = saldoInicialBancoPerfil(nucleoProfile) + deltaBanco

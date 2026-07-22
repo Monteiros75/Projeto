@@ -110,7 +110,7 @@ function FechoMensalPage() {
     if (!validation.ready || isFechado) return
     if (
       !window.confirm(
-        `Fechar ${nomeMes} definitivamente?\n\nDepois disto não podes alterar movimentos deste mês. Podes reabrir apenas se ainda não entregaste à contabilidade.`,
+        `Fechar ${nomeMes} e submeter ao concelho fiscal?\n\nDepois disto não podes alterar movimentos deste mês até haver resposta. Se o concelho fiscal pedir correções, os movimentos são desbloqueados automaticamente para corrigires e resubmeteres.`,
       )
     ) {
       return
@@ -199,7 +199,12 @@ function FechoMensalPage() {
                 {nomeMes} fechado em {formatFechadoEm(fechadoEm)}
               </p>
               <p className="mt-1 text-[13px] text-[#4338CA]">
-                Movimentos bloqueados. Entrega o processo em papel à contabilidade.
+                Movimentos bloqueados.{' '}
+                {estadoValidacao === 'submetido'
+                  ? 'A aguardar revisão do concelho fiscal antes da entrega em papel.'
+                  : estadoValidacao === 'aprovado'
+                    ? 'Aprovado pelo concelho fiscal — entrega o processo em papel à contabilidade.'
+                    : 'Entrega o processo em papel à contabilidade.'}
               </p>
             </div>
           </div>
@@ -251,7 +256,8 @@ function FechoMensalPage() {
         <div className="mb-6 flex items-center gap-3 rounded-lg border border-[#10B981] bg-[#DCFCE7] p-4">
           <CheckCircle2 className="h-5 w-5 shrink-0 text-[#10B981]" />
           <p className="text-[14px] text-[#166534]">
-            Aprovado pelo concelho fiscal {revistoEm ? `em ${formatFechadoEm(revistoEm)}` : ''}.
+            Aprovado pelo concelho fiscal {revistoEm ? `em ${formatFechadoEm(revistoEm)}` : ''} —
+            pronto para entrega em papel à contabilidade.
           </p>
         </div>
       ) : null}
@@ -412,9 +418,13 @@ function FechoMensalPage() {
           }`}
         >
           {isFechado
-            ? 'Mês fechado — processo pronto para entrega.'
+            ? estadoValidacao === 'submetido'
+              ? 'Mês fechado — submetido ao concelho fiscal, aguarda revisão.'
+              : estadoValidacao === 'aprovado'
+                ? 'Mês fechado — aprovado, pronto para entrega.'
+                : 'Mês fechado — processo pronto para entrega.'
             : validation.ready
-              ? 'Validação completa. Prepara a impressão abaixo e fecha o mês quando tiveres tudo em papel.'
+              ? 'Validação completa. Prepara a impressão abaixo e fecha o mês para submeter ao concelho fiscal.'
               : 'Completa os itens em falta antes de fechar o mês.'}
         </p>
 
@@ -431,8 +441,8 @@ function FechoMensalPage() {
 
         {!isFechado && preparado && validation.ready ? (
           <div className="mt-5 rounded-lg border border-[#10B981] bg-[#DCFCE7] p-4 text-[14px] text-[#166534]">
-            Validação guardada — imprime os documentos na checklist abaixo e fecha o mês quando
-            tiveres tudo em papel.
+            Validação guardada — imprime os documentos na checklist abaixo e fecha o mês para
+            submeter ao concelho fiscal.
           </div>
         ) : null}
       </div>
@@ -468,10 +478,10 @@ function FechoMensalPage() {
                 disabled={finalizando}
                 className="mt-4 w-full rounded-lg bg-[#111827] px-4 py-3.5 text-[15px] font-medium text-white hover:bg-[#1F2937] disabled:opacity-70"
               >
-                {finalizando ? 'A fechar...' : `Fechar ${nomeMes} definitivamente`}
+                {finalizando ? 'A submeter...' : `Fechar ${nomeMes} e submeter ao concelho fiscal`}
               </button>
               <p className="mt-2 text-center text-[12px] text-[#6B7280]">
-                Depois de fechar, os movimentos deste mês ficam bloqueados.
+                Os movimentos ficam bloqueados e o mês fica à espera de revisão do concelho fiscal.
               </p>
             </>
           ) : null}
