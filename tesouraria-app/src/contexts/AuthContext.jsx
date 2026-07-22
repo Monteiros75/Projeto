@@ -1,32 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { isOnboardingRequired } from '../lib/onboarding'
+import { mapNucleoFromDb } from '../lib/nucleoMapper'
 import { STORAGE_BUCKET, supabase } from '../supabase/supabaseClient'
 import { AuthContext } from './auth-context'
 
 const LOGO_SIGNED_URL_TTL_SECONDS = 60 * 60
 
-function mapNucleoFromDb(row) {
+/** Converte colunas snake_case da BD para o formato usado na UI (membro do concelho fiscal). */
+function mapConcelhoFromDb(row) {
   if (!row) return null
   return {
     id: row.id,
     uid: row.id,
-    nomeNucleo: row.nome_nucleo || '',
-    associacaoAcademica: row.associacao_academica || '',
-    nomeTesoureiro: row.nome_tesoureiro || '',
-    nomePresidente: row.nome_presidente || '',
+    nome: row.nome || '',
     email: row.email || '',
-    emailContacto: row.email_contacto || '',
-    role: row.role || 'nucleo_admin',
-    temContaBancaria: Boolean(row.tem_conta_bancaria),
-    iban: row.iban || '',
-    saldoAtualCaixa: Number(row.saldo_atual_caixa || 0),
-    saldoAtualBanco: Number(row.saldo_atual_banco || 0),
-    dataReferenciaSaldos: row.data_referencia_saldos || '',
-    observacoes: row.observacoes || '',
-    logoPath: row.logo_path || '',
-    logoUrl: '',
-    onboardingCompleto: Boolean(row.onboarding_completo),
-    ativo: Boolean(row.ativo),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -83,12 +70,30 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [nucleoProfile, setNucleoProfile] = useState(null)
+  const [concelhoProfile, setConcelhoProfile] = useState(null)
+  const [principalType, setPrincipalType] = useState(null)
   const [profileLoading, setProfileLoading] = useState(true)
   const syncPromisesRef = useRef(new Map())
   const profileLoadedRef = useRef(false)
 
+  /**
+   * Determina o tipo de conta e garante o perfil de nucleo quando aplicavel.
+   * Ponto unico de decisao "e membro do concelho fiscal?" — todos os chamadores
+   * (bootstrap, onAuthStateChange, login) passam por aqui, para nunca criar por
+   * engano uma linha em `nucleos` para uma conta de concelho fiscal.
+   * Devolve 'concelho' ou 'nucleo'.
+   */
   const ensureNucleoProfile = useCallback(async (sessionUser) => {
-    if (!sessionUser?.id) return
+    if (!sessionUser?.id) return 'nucleo'
+
+    const { data: concelhoRow, error: concelhoSelectError } = await supabase
+      .from('concelho_membros')
+      .select('id')
+      .eq('id', sessionUser.id)
+      .maybeSingle()
+
+    if (concelhoSelectError) throw concelhoSelectError
+    if (concelhoRow) return 'concelho'
 
     const { data: existing, error: selectError } = await supabase
       .from('nucleos')
@@ -97,7 +102,7 @@ export function AuthProvider({ children }) {
       .maybeSingle()
 
     if (selectError) throw selectError
-    if (existing) return
+    if (existing) return 'nucleo'
 
     const meta = sessionUser.user_metadata || {}
     const insertPayload = {
@@ -116,6 +121,35 @@ export function AuthProvider({ children }) {
 
     const { error: insertError } = await supabase.from('nucleos').insert(insertPayload)
     if (insertError && !isDuplicateNucleoError(insertError)) throw insertError
+    return 'nucleo'
+  }, [])
+
+  const loadConcelhoProfile = useCallback(async (uid, options = {}) => {
+    const { silent = false } = options
+    if (!uid) {
+      setConcelhoProfile(null)
+      setProfileLoading(false)
+      return
+    }
+
+    if (!silent) {
+      setProfileLoading(true)
+    }
+    try {
+      const { data, error } = await supabase
+        .from('concelho_membros')
+        .select('*')
+        .eq('id', uid)
+        .maybeSingle()
+
+      if (error) throw error
+      setConcelhoProfile(mapConcelhoFromDb(data))
+    } catch (profileError) {
+      console.error(profileError)
+      setConcelhoProfile(null)
+    } finally {
+      setProfileLoading(false)
+    }
   }, [])
 
   const loadNucleoProfile = useCallback(async (uid, options = {}) => {
@@ -164,13 +198,21 @@ export function AuthProvider({ children }) {
       }
 
       const task = (async () => {
+        let type = 'nucleo'
         try {
-          await ensureNucleoProfile(sessionUser)
+          type = await ensureNucleoProfile(sessionUser)
         } catch (error) {
           if (!isDuplicateNucleoError(error)) {
-            console.error('Erro ao criar perfil do nucleo:', error)
+            console.error('Erro ao preparar perfil:', error)
           }
-        } finally {
+        }
+        setPrincipalType(type)
+        if (type === 'concelho') {
+          setNucleoProfile(null)
+          profileLoadedRef.current = false
+          await loadConcelhoProfile(uid, options)
+        } else {
+          setConcelhoProfile(null)
           await loadNucleoProfile(uid, options)
         }
       })()
@@ -182,7 +224,7 @@ export function AuthProvider({ children }) {
         syncPromisesRef.current.delete(uid)
       }
     },
-    [ensureNucleoProfile, loadNucleoProfile],
+    [ensureNucleoProfile, loadNucleoProfile, loadConcelhoProfile],
   )
 
   useEffect(() => {
@@ -199,6 +241,8 @@ export function AuthProvider({ children }) {
           void syncSessionUser(sessionUser)
         } else {
           setNucleoProfile(null)
+          setConcelhoProfile(null)
+          setPrincipalType(null)
           setProfileLoading(false)
         }
       } catch (err) {
@@ -206,6 +250,8 @@ export function AuthProvider({ children }) {
           console.error('Falha ao obter sessao Supabase:', err)
           setUser(null)
           setNucleoProfile(null)
+          setConcelhoProfile(null)
+          setPrincipalType(null)
           setProfileLoading(false)
         }
       } finally {
@@ -230,6 +276,8 @@ export function AuthProvider({ children }) {
       if (event === 'SIGNED_OUT') {
         setUser(null)
         setNucleoProfile(null)
+        setConcelhoProfile(null)
+        setPrincipalType(null)
         profileLoadedRef.current = false
         setProfileLoading(false)
         setLoading(false)
@@ -242,6 +290,8 @@ export function AuthProvider({ children }) {
         void syncSessionUser(sessionUser, { silent })
       } else {
         setNucleoProfile(null)
+        setConcelhoProfile(null)
+        setPrincipalType(null)
         profileLoadedRef.current = false
         setProfileLoading(false)
       }
@@ -259,8 +309,13 @@ export function AuthProvider({ children }) {
       user,
       loading,
       nucleoProfile,
+      concelhoProfile,
+      principalType,
       profileLoading,
-      onboardingRequired: isOnboardingRequired(user?.id, profileLoading, nucleoProfile),
+      onboardingRequired:
+        principalType === 'concelho'
+          ? false
+          : isOnboardingRequired(user?.id, profileLoading, nucleoProfile),
       login: async (email, password) => {
         const { data, error } = await supabase.auth.signInWithPassword({
           email,
@@ -347,7 +402,16 @@ export function AuthProvider({ children }) {
         if (error) throw error
       },
     }),
-    [user, loading, nucleoProfile, profileLoading, loadNucleoProfile, ensureNucleoProfile],
+    [
+      user,
+      loading,
+      nucleoProfile,
+      concelhoProfile,
+      principalType,
+      profileLoading,
+      loadNucleoProfile,
+      ensureNucleoProfile,
+    ],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

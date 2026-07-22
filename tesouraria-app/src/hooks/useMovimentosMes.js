@@ -2,15 +2,16 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../supabase/supabaseClient'
 import { useAuth } from './useAuth'
 
-export function useMovimentosMes(monthRef) {
+export function useMovimentosMes(monthRef, { nucleoId } = {}) {
   const { user } = useAuth()
+  const targetNucleoId = nucleoId || user?.id
   const [movimentos, setMovimentos] = useState([])
   const [fecho, setFecho] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   const reload = useCallback(async () => {
-    if (!user?.id) {
+    if (!targetNucleoId) {
       setMovimentos([])
       setFecho(null)
       setLoading(false)
@@ -23,7 +24,7 @@ export function useMovimentosMes(monthRef) {
       const { data: movimentosRows, error: movimentosError } = await supabase
         .from('movimentos')
         .select('*')
-        .eq('nucleo_id', user.id)
+        .eq('nucleo_id', targetNucleoId)
         .eq('month_ref', monthRef)
         .order('data', { ascending: true })
 
@@ -32,7 +33,7 @@ export function useMovimentosMes(monthRef) {
       const { data: fechoRow, error: fechoError } = await supabase
         .from('fechos_mensais')
         .select('*')
-        .eq('nucleo_id', user.id)
+        .eq('nucleo_id', targetNucleoId)
         .eq('month_ref', monthRef)
         .maybeSingle()
 
@@ -48,7 +49,7 @@ export function useMovimentosMes(monthRef) {
     } finally {
       setLoading(false)
     }
-  }, [user?.id, monthRef])
+  }, [targetNucleoId, monthRef])
 
   useEffect(() => {
     reload()

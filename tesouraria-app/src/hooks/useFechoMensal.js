@@ -189,7 +189,11 @@ export function useFechoMensal(monthRef) {
     setFechoError('')
     setFinalizando(true)
     try {
-      await saveMonthlyMeta({ fechado_em: new Date().toISOString() })
+      await saveMonthlyMeta({
+        fechado_em: new Date().toISOString(),
+        estado_validacao: 'submetido',
+        submetido_em: new Date().toISOString(),
+      })
       await reload()
       return true
     } catch (closeError) {
@@ -206,7 +210,7 @@ export function useFechoMensal(monthRef) {
     setFechoError('')
     setFinalizando(true)
     try {
-      await saveMonthlyMeta({ fechado_em: null })
+      await saveMonthlyMeta({ fechado_em: null, estado_validacao: 'rascunho' })
       await reload()
       return true
     } catch (reopenError) {
@@ -229,6 +233,10 @@ export function useFechoMensal(monthRef) {
     finalizando,
     isFechado,
     fechadoEm: fecho?.fechado_em || null,
+    estadoValidacao: fecho?.estado_validacao || 'rascunho',
+    comentarioRevisao: fecho?.comentario_revisao || '',
+    submetidoEm: fecho?.submetido_em || null,
+    revistoEm: fecho?.revisto_em || null,
     uploadExtrato,
     finalizeFecho,
     fecharMes,

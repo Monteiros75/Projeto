@@ -1,6 +1,8 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
+import ConselhoLayout from './components/ConselhoLayout'
 import ProtectedRoute from './components/ProtectedRoute'
+import { useAuth } from './hooks/useAuth'
 import AjudaPage from './pages/AjudaPage'
 import DocumentoModeloPage from './pages/DocumentoModeloPage'
 import DocumentosPage from './pages/DocumentosPage'
@@ -19,6 +21,14 @@ import PlanoPrintPage from './pages/PlanoPrintPage'
 import PlanosPage from './pages/PlanosPage'
 import ProfileSettingsPage from './pages/ProfileSettingsPage'
 import RegisterPage from './pages/RegisterPage'
+import ConselhoDashboardPage from './pages/ConselhoDashboardPage'
+import ConselhoRevisaoPage from './pages/ConselhoRevisaoPage'
+
+/** Catch-all: manda cada sessao para a home do seu proprio papel. */
+function RootRedirect() {
+  const { principalType } = useAuth()
+  return <Navigate to={principalType === 'concelho' ? '/concelho' : '/dashboard'} replace />
+}
 
 function App() {
   return (
@@ -59,7 +69,18 @@ function App() {
         <Route path="ajuda" element={<AjudaPage />} />
         <Route path="configuracoes/perfil" element={<ProfileSettingsPage />} />
       </Route>
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route
+        path="/concelho"
+        element={
+          <ProtectedRoute allow="concelho">
+            <ConselhoLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<ConselhoDashboardPage />} />
+        <Route path="nucleos/:nucleoId" element={<ConselhoRevisaoPage />} />
+      </Route>
+      <Route path="*" element={<RootRedirect />} />
     </Routes>
   )
 }

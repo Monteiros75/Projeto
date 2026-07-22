@@ -1,6 +1,15 @@
+/**
+ * Rotas autenticadas: redireciona para login, para a home do outro papel
+ * (nucleo vs concelho fiscal) ou para o onboarding do nucleo quando aplicavel.
+ */
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { isOnboardingAllowedPath } from '../lib/onboarding'
+
+const HOME_BY_TYPE = {
+  nucleo: '/dashboard',
+  concelho: '/concelho',
+}
 
 function AuthLoadingScreen({ message = 'A carregar...' }) {
   return (
@@ -10,8 +19,16 @@ function AuthLoadingScreen({ message = 'A carregar...' }) {
   )
 }
 
-function ProtectedRoute({ children }) {
-  const { user, loading, profileLoading, nucleoProfile, onboardingRequired } = useAuth()
+function ProtectedRoute({ children, allow = 'nucleo' }) {
+  const {
+    user,
+    loading,
+    profileLoading,
+    nucleoProfile,
+    concelhoProfile,
+    principalType,
+    onboardingRequired,
+  } = useAuth()
   const location = useLocation()
 
   if (loading && !user) {
@@ -22,11 +39,15 @@ function ProtectedRoute({ children }) {
     return <Navigate to="/login" replace state={{ from: location }} />
   }
 
-  if (profileLoading && !nucleoProfile) {
-    return <AuthLoadingScreen message="A preparar a conta do núcleo..." />
+  if (profileLoading && !nucleoProfile && !concelhoProfile) {
+    return <AuthLoadingScreen message="A preparar a conta..." />
   }
 
-  if (onboardingRequired && !isOnboardingAllowedPath(location.pathname)) {
+  if (principalType && principalType !== allow) {
+    return <Navigate to={HOME_BY_TYPE[principalType] || '/login'} replace />
+  }
+
+  if (allow === 'nucleo' && onboardingRequired && !isOnboardingAllowedPath(location.pathname)) {
     return <Navigate to="/configuracoes/perfil" replace state={{ from: location }} />
   }
 

@@ -1,4 +1,4 @@
-import { AlertCircle, ArrowRight, CheckCircle2, ExternalLink, FileUp, Lock, Upload } from 'lucide-react'
+import { AlertCircle, ArrowRight, CheckCircle2, Clock, ExternalLink, FileUp, Lock, Upload } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import EntregaImpressaoChecklist from '../components/EntregaImpressaoChecklist'
@@ -69,6 +69,10 @@ function FechoMensalPage() {
     saldoAnteriorBanco,
     saldoFinalCaixa,
     saldoFinalBanco,
+    estadoValidacao,
+    comentarioRevisao,
+    submetidoEm,
+    revistoEm,
   } = useFechoMensal(monthRef)
 
   useEffect(() => {
@@ -233,6 +237,41 @@ function FechoMensalPage() {
           </div>
         </div>
       )}
+
+      {submetidoEm && estadoValidacao === 'submetido' ? (
+        <div className="mb-6 flex items-center gap-3 rounded-lg border border-[#1F6FEB] bg-[#EFF6FF] p-4">
+          <Clock className="h-5 w-5 shrink-0 text-[#1F6FEB]" />
+          <p className="text-[14px] text-[#1E40AF]">
+            Submetido ao concelho fiscal em {formatFechadoEm(submetidoEm)} — aguarda revisão.
+          </p>
+        </div>
+      ) : null}
+
+      {estadoValidacao === 'aprovado' ? (
+        <div className="mb-6 flex items-center gap-3 rounded-lg border border-[#10B981] bg-[#DCFCE7] p-4">
+          <CheckCircle2 className="h-5 w-5 shrink-0 text-[#10B981]" />
+          <p className="text-[14px] text-[#166534]">
+            Aprovado pelo concelho fiscal {revistoEm ? `em ${formatFechadoEm(revistoEm)}` : ''}.
+          </p>
+        </div>
+      ) : null}
+
+      {estadoValidacao === 'reprovado' ? (
+        <div className="mb-6 rounded-lg border border-[#F59E0B] bg-[#FEF3C7] p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-[#F59E0B]" />
+            <div>
+              <p className="text-[14px] font-medium text-[#92400E]">
+                O concelho fiscal pediu correções{revistoEm ? ` em ${formatFechadoEm(revistoEm)}` : ''}.
+                Os movimentos já estão desbloqueados — corrige e volta a fechar o mês para resubmeter.
+              </p>
+              {comentarioRevisao ? (
+                <p className="mt-1 text-[13px] text-[#92400E]/90">{comentarioRevisao}</p>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {error ? (
         <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[14px] text-red-800">

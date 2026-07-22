@@ -10,8 +10,11 @@ import { createSignedUrlForPath } from '../lib/storageSignedUrl'
 import { supabase } from '../supabase/supabaseClient'
 import { useAuth } from './useAuth'
 
-export function useEntregaImpressao(monthRef, enabled = true) {
-  const { user, nucleoProfile } = useAuth()
+export function useEntregaImpressao(monthRef, enabled = true, options = {}) {
+  const { user, nucleoProfile: sessionNucleoProfile } = useAuth()
+  const { nucleoId, nucleoProfile: nucleoProfileOverride } = options
+  const targetNucleoId = nucleoId || user?.id
+  const nucleoProfile = nucleoProfileOverride || sessionNucleoProfile
   const temContaBancaria = nucleoTemContaBancaria(nucleoProfile)
   const [loading, setLoading] = useState(false)
   const [extras, setExtras] = useState([])
@@ -24,7 +27,7 @@ export function useEntregaImpressao(monthRef, enabled = true) {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    if (!enabled || !user?.id || !monthRef) {
+    if (!enabled || !targetNucleoId || !monthRef) {
       setExtras([])
       setModelos([])
       setMovimentos([])
@@ -41,24 +44,24 @@ export function useEntregaImpressao(monthRef, enabled = true) {
           supabase
             .from('movimentos')
             .select('*')
-            .eq('nucleo_id', user.id)
+            .eq('nucleo_id', targetNucleoId)
             .eq('month_ref', monthRef)
             .order('data', { ascending: true }),
           supabase
             .from('fechos_mensais')
             .select('*')
-            .eq('nucleo_id', user.id)
+            .eq('nucleo_id', targetNucleoId)
             .eq('month_ref', monthRef)
             .maybeSingle(),
           supabase
             .from('documentos_extras')
             .select('*')
-            .eq('nucleo_id', user.id)
+            .eq('nucleo_id', targetNucleoId)
             .eq('month_ref', monthRef),
           supabase
             .from('documentos_modelos')
             .select('*')
-            .eq('nucleo_id', user.id)
+            .eq('nucleo_id', targetNucleoId)
             .eq('month_ref', monthRef),
         ])
 
@@ -97,7 +100,7 @@ export function useEntregaImpressao(monthRef, enabled = true) {
           fechoRow?.itens_impressos && typeof fechoRow.itens_impressos === 'object'
             ? fechoRow.itens_impressos
             : null
-        const fromLocal = loadPrintedFromStorage(user.id, monthRef)
+        const fromLocal = loadPrintedFromStorage(targetNucleoId, monthRef)
         const merged = { ...fromLocal, ...fromDb }
 
         setMovimentos(movs)
@@ -118,7 +121,7 @@ export function useEntregaImpressao(monthRef, enabled = true) {
     return () => {
       cancelled = true
     }
-  }, [enabled, user?.id, monthRef])
+  }, [enabled, targetNucleoId, monthRef])
 
   const items = useMemo(
     () =>
@@ -139,14 +142,14 @@ export function useEntregaImpressao(monthRef, enabled = true) {
 
   const persistPrinted = useCallback(
     async (next) => {
-      if (!user?.id) return
+      if (!targetNucleoId) return
       setPrinted(next)
-      savePrintedToStorage(user.id, monthRef, next)
+      savePrintedToStorage(targetNucleoId, monthRef, next)
       setSaving(true)
       try {
         await supabase.from('fechos_mensais').upsert(
           {
-            nucleo_id: user.id,
+            nucleo_id: targetNucleoId,
             month_ref: monthRef,
             itens_impressos: next,
           },
@@ -158,7 +161,7 @@ export function useEntregaImpressao(monthRef, enabled = true) {
         setSaving(false)
       }
     },
-    [user?.id, monthRef],
+    [targetNucleoId, monthRef],
   )
 
   const togglePrinted = useCallback(
