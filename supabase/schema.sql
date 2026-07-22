@@ -673,3 +673,45 @@ $$;
 
 revoke all on function public.concelho_rever_fecho(uuid, text, text, text) from public;
 grant execute on function public.concelho_rever_fecho(uuid, text, text, text) to authenticated;
+
+-- =========================================================================
+-- Concelho Fiscal: autogestao de atribuicoes (associar/desassociar nucleos).
+-- (replicado de supabase/migrate-concelho-autogestao.sql — manter os dois em sincronia)
+-- =========================================================================
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'concelho_atribuicoes_nucleo_id_key'
+  ) then
+    alter table public.concelho_atribuicoes
+      add constraint concelho_atribuicoes_nucleo_id_key unique (nucleo_id);
+  end if;
+end $$;
+
+drop policy if exists "Concelho atribuicoes: insert proprio" on public.concelho_atribuicoes;
+create policy "Concelho atribuicoes: insert proprio"
+  on public.concelho_atribuicoes for insert
+  with check (membro_id = auth.uid());
+
+drop policy if exists "Concelho atribuicoes: delete proprio" on public.concelho_atribuicoes;
+create policy "Concelho atribuicoes: delete proprio"
+  on public.concelho_atribuicoes for delete
+  using (membro_id = auth.uid());
+
+create or replace function public.concelho_listar_nucleos_disponiveis()
+returns table (id uuid, nome_nucleo text, nome_tesoureiro text)
+language sql
+security definer
+set search_path = public
+as $$
+  select n.id, n.nome_nucleo, n.nome_tesoureiro
+  from public.nucleos n
+  where exists (select 1 from public.concelho_membros where id = auth.uid())
+    and not exists (
+      select 1 from public.concelho_atribuicoes ca where ca.nucleo_id = n.id
+    )
+  order by n.nome_nucleo;
+$$;
+
+revoke all on function public.concelho_listar_nucleos_disponiveis() from public;
+grant execute on function public.concelho_listar_nucleos_disponiveis() to authenticated;

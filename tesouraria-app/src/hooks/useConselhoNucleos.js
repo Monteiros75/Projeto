@@ -1,4 +1,8 @@
-/** Núcleos atribuídos ao membro do concelho fiscal autenticado, com o estado do fecho mais relevante. */
+/**
+ * Núcleos atribuídos ao membro do concelho fiscal autenticado (com o estado do
+ * fecho mais relevante) e núcleos disponíveis para se associar. Cada núcleo só
+ * pode ter um membro responsável de cada vez (imposto por constraint na BD).
+ */
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../supabase/supabaseClient'
 import { useAuth } from './useAuth'
@@ -6,12 +10,16 @@ import { useAuth } from './useAuth'
 export function useConselhoNucleos() {
   const { user } = useAuth()
   const [nucleos, setNucleos] = useState([])
+  const [disponiveis, setDisponiveis] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [actionError, setActionError] = useState('')
+  const [actionSubmitting, setActionSubmitting] = useState(false)
 
   const reload = useCallback(async () => {
     if (!user?.id) {
       setNucleos([])
+      setDisponiveis([])
       setLoading(false)
       return
     }
@@ -19,14 +27,18 @@ export function useConselhoNucleos() {
     setLoading(true)
     setError('')
     try {
-      const { data: atribuicoes, error: atribuicoesError } = await supabase
-        .from('concelho_atribuicoes')
-        .select('nucleo_id, nucleos(id, nome_nucleo, nome_tesoureiro)')
-        .eq('membro_id', user.id)
+      const [atribuicoesRes, disponiveisRes] = await Promise.all([
+        supabase
+          .from('concelho_atribuicoes')
+          .select('nucleo_id, nucleos(id, nome_nucleo, nome_tesoureiro)')
+          .eq('membro_id', user.id),
+        supabase.rpc('concelho_listar_nucleos_disponiveis'),
+      ])
 
-      if (atribuicoesError) throw atribuicoesError
+      if (atribuicoesRes.error) throw atribuicoesRes.error
+      if (disponiveisRes.error) throw disponiveisRes.error
 
-      const nucleoRows = (atribuicoes || []).map((row) => row.nucleos).filter(Boolean)
+      const nucleoRows = (atribuicoesRes.data || []).map((row) => row.nucleos).filter(Boolean)
       const nucleoIds = nucleoRows.map((row) => row.id)
 
       const fechoByNucleo = new Map()
@@ -67,10 +79,18 @@ export function useConselhoNucleos() {
       })
 
       setNucleos(merged)
+      setDisponiveis(
+        (disponiveisRes.data || []).map((row) => ({
+          id: row.id,
+          nomeNucleo: row.nome_nucleo || '',
+          nomeTesoureiro: row.nome_tesoureiro || '',
+        })),
+      )
     } catch (e) {
       console.error(e)
-      setError('Erro ao carregar núcleos atribuídos.')
+      setError('Erro ao carregar núcleos.')
       setNucleos([])
+      setDisponiveis([])
     } finally {
       setLoading(false)
     }
@@ -80,5 +100,68 @@ export function useConselhoNucleos() {
     reload()
   }, [reload])
 
-  return { nucleos, loading, error, reload }
+  const associar = useCallback(
+    async (nucleoId) => {
+      if (!user?.id || !nucleoId) return false
+      setActionSubmitting(true)
+      setActionError('')
+      try {
+        const { error: insertError } = await supabase
+          .from('concelho_atribuicoes')
+          .insert({ membro_id: user.id, nucleo_id: nucleoId })
+        if (insertError) throw insertError
+        await reload()
+        return true
+      } catch (e) {
+        console.error(e)
+        setActionError(
+          e?.code === '23505'
+            ? 'Este núcleo acabou de ser associado a outro membro. Atualiza a lista.'
+            : 'Não foi possível associar este núcleo.',
+        )
+        await reload()
+        return false
+      } finally {
+        setActionSubmitting(false)
+      }
+    },
+    [user?.id, reload],
+  )
+
+  const desassociar = useCallback(
+    async (nucleoId) => {
+      if (!user?.id || !nucleoId) return false
+      setActionSubmitting(true)
+      setActionError('')
+      try {
+        const { error: deleteError } = await supabase
+          .from('concelho_atribuicoes')
+          .delete()
+          .eq('membro_id', user.id)
+          .eq('nucleo_id', nucleoId)
+        if (deleteError) throw deleteError
+        await reload()
+        return true
+      } catch (e) {
+        console.error(e)
+        setActionError('Não foi possível desassociar este núcleo.')
+        return false
+      } finally {
+        setActionSubmitting(false)
+      }
+    },
+    [user?.id, reload],
+  )
+
+  return {
+    nucleos,
+    disponiveis,
+    loading,
+    error,
+    actionError,
+    actionSubmitting,
+    associar,
+    desassociar,
+    reload,
+  }
 }
